@@ -1,0 +1,2 @@
+﻿  TestsInOpenGL.cpp
+LINK : fatal error LNK1104: cannot open file 'C:\Users\USER\source\repos\TestsInOpenGL\x64\Debug\TestsInOpenGL.exe'
