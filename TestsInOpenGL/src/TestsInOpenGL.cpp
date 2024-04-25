@@ -10,9 +10,20 @@ const char* vertexShaderSource = R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
     uniform mat4 model; // Model matrix uniform
+
+    // Output variables for fragment shader
+    out vec3 FragPos; // Fragment position
+    out vec3 Normal;  // Normal vector
+
     void main()
     {
-        gl_Position = model * vec4(aPos, 1.0);
+        Normal = mat3(transpose(inverse(model))) * normalize(aPos);
+        
+        vec4 worldPos = model * vec4(aPos, 1.0);
+
+        FragPos = vec3(worldPos);
+
+        gl_Position = worldPos;
     }
 )";
 
@@ -20,9 +31,24 @@ const char* vertexShaderSource = R"(
 const char* fragmentShaderSource = R"(
     #version 330 core
     out vec4 FragColor;
+
+    // Input from vertex shader
+    in vec3 FragPos;
+    in vec3 Normal;
+
+    // Uniforms
+    vec3 lightDir = vec3(0, 1, -0.2);
+    vec3 objectColor = vec3(1.0f, 0.5f, 0.2f);
+    vec3 lightColor = vec3(1, 1, 1);
+
     void main()
     {
-        FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+        // Calculate diffuse light
+        float diff = max(dot(normalize(Normal), normalize(-lightDir)), 0.0);
+        vec3 diffuse = diff * lightColor * objectColor;
+
+        // Final color
+        FragColor = vec4(diffuse, 1.0);
     }
 )";
 
@@ -123,26 +149,46 @@ int main(void)
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
+
+    // Check for linking errors
+    int success;
+    char infoLog[512];
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cerr << "Error: Shader program linking failed\n" << infoLog << std::endl;
+    }
+
     glUseProgram(shaderProgram);
 
 
-    /* Loop until the user closes the window */
-    glBindVertexArray(VAO);
-
-
-    // Apply rotation transformation
-    glm::mat4 model = glm::mat4(1.0f); // Identity matrix
-    glm::vec3 axis(0.0f, 0.6f, 0.5f);
-    model = glm::rotate(model, glm::radians(90.0f), axis);
-
     unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
+    float rotation = 90;
+
+    glm::mat4 model = glm::mat4(1.0f); // Identity matrix
+    glm::vec3 axis0(0.0f, 0.6f, 0.5f);
+    model = glm::rotate(model, glm::radians(rotation), axis0);
+    glm::vec3 axis1(0.0f, 1, 0);
+    double currentFrame = 0;
+
+    /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        float newFrame = glfwGetTime();
+        float deltaTime = newFrame - currentFrame;
+        currentFrame = newFrame;
+
+        //std::cout << currentFrame << std::endl;
+        rotation = deltaTime*10;
+
+        // Apply rotation transformation
+        model = glm::rotate(model, glm::radians(rotation), axis1);
+
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
         // Draw the cube
         glBindVertexArray(VAO);
